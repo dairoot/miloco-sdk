@@ -1,0 +1,7 @@
+__pycache__/
+snapshots/
+*.egg-info/
+dist/
+data/
+camera.jpg
+*.pt
