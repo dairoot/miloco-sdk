@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Tuple
 
 from openai import OpenAI
 
-from miloco_sdk.cli.config import _get_openai_config
+from miloco_sdk.cli.config import get_openai_config
 from miloco_sdk.cli.mcp_tool import mcp
 from miloco_sdk.utils.mcp_jsonrpc import get_tools_openai_format
 
@@ -22,7 +22,7 @@ async def llm_api(messages: List[Dict[str, str]]) -> Tuple[str, List[Dict]]:
         ValueError: 如果环境变量未设置
     """
     # 延迟检查环境变量，只在函数调用时验证
-    api_key, model, base_url = _get_openai_config()
+    api_key, model, base_url = get_openai_config()
 
     tools = await get_tools_openai_format(mcp)
 

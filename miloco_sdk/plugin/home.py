@@ -31,7 +31,6 @@ class Home(BaseApi):
         self._client = client
         self._random_aes_key = os.urandom(16)
 
-        self.session = requests.Session()
         self._base_url = f"https://{PROJECT_CODE}.api.mijia.tech"
 
         self._cipher = Cipher(
@@ -81,7 +80,7 @@ class Home(BaseApi):
     def api_request(self, url_path: str, data: Dict):
         self._base_url = f"https://{PROJECT_CODE}.api.mijia.tech"
 
-        http_res = self.session.post(
+        http_res = self._client._http.post(
             url=f"{self._base_url}{url_path}",
             data=self.aes_encrypt_with_b64(data),
             headers=self.__api_request_headers,

@@ -22,6 +22,7 @@ classifiers = [
 ]
 
 dependencies = [
+    "qrcode==8.2",
     "fastmcp>=2.14.1",
     "openai>=1.0.0",
     "aiohttp>=3.8.0",

@@ -2,6 +2,8 @@ import hashlib
 import inspect
 from typing import Optional
 
+import requests
+
 from miloco_sdk.base import BaseApi
 from miloco_sdk.plugin.authorize import Authorize
 from miloco_sdk.plugin.home import Home
@@ -40,6 +42,14 @@ class XiaomiClient:
         self._device_id = f"{PROJECT_CODE}.{get_device_id()}"
         self._state = hashlib.sha1(f"d={self._device_id}".encode("utf-8")).hexdigest()
         self._access_token = access_token
+
+        self._http = requests.Session()
+        self._http.headers.update(
+            {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "*/*",
+            }
+        )
 
     def __new__(cls, *args, **kwargs):
         self = super(XiaomiClient, cls).__new__(cls)

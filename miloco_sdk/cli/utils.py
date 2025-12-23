@@ -1,6 +1,6 @@
-import base64
 import json
 import os
+import urllib
 
 from miloco_sdk.configs import DATA_PATH
 
@@ -41,18 +41,11 @@ def get_auth_info(client):
             auth_info = json.load(f)
         return auth_info
 
-    auth_url = client.authorize.gen_auth_url(skip_confirm=True)
-    # 请用户在浏览器中打开授权页面
-    print(f"请在浏览器中打开授权链接: \n{auth_url}")
-    base64_code = input("\n请输入授权码: ")
-    try:
-        code_info = json.loads(base64.b64decode(base64_code).decode("utf-8"))
-        code_info["code"]
-    except Exception as e:
-        print(f"授权码格式错误: {e}")
-        return
-
-    auth_info = client.authorize.get_access_token_from_mico(code_info["code"])["result"]
+    code_url = client.authorize.get_code_url()
+    url = urllib.parse.urlparse(code_url)
+    query_params = urllib.parse.parse_qs(url.query)
+    code = query_params["code"][0]
+    auth_info = client.authorize.get_access_token_from_mico(code)["result"]
 
     with open(auth_file, "w", encoding="utf-8") as f:
         json.dump(auth_info, f, ensure_ascii=True, indent=2)

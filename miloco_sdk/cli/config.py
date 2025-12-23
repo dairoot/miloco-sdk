@@ -4,7 +4,7 @@ from typing import Tuple
 from miloco_sdk.configs import DATA_PATH
 
 
-def _get_openai_config() -> Tuple[str, str, str]:
+def get_openai_config() -> Tuple[str, str, str]:
     api_key = os.getenv("OPENAI_API_KEY")
     model = os.getenv("OPENAI_MODEL")
     base_url = os.getenv("OPENAI_BASE_URL")

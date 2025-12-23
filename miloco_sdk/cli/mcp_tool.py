@@ -5,7 +5,7 @@ from fastmcp import FastMCP
 from openai import OpenAI
 from pydantic import Field
 
-from miloco_sdk.cli.config import IMAGE_PATH, _get_openai_config
+from miloco_sdk.cli.config import IMAGE_PATH, get_openai_config
 
 mcp = FastMCP("Miloco")
 
@@ -33,7 +33,7 @@ async def vision_understand(question: str = Field(description="用户的提问")
         }
     ]
 
-    api_key, model, base_url = _get_openai_config()
+    api_key, model, base_url = get_openai_config()
     client = OpenAI(api_key=api_key, base_url=base_url)
     response = client.chat.completions.create(
         model=model,
