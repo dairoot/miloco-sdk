@@ -85,6 +85,9 @@ class Home(BaseApi):
             data=self.aes_encrypt_with_b64(data),
             headers=self.__api_request_headers,
         )
+        if http_res.status_code != 200:
+            raise Exception(f"invalid response code, {http_res.status_code}, {http_res.text}")
+            
         res_obj: Dict = self.aes_decrypt_with_b64(http_res.text)
         return res_obj
 
