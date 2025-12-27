@@ -62,7 +62,7 @@ SDK 提供了丰富的示例代码，位于 [examples/](examples/) 目录下，�
 | `examples/stream_to_audio.py` | 摄像头音频流获取示例，支持实时播放 PCM 音频流 |
 | `examples/yolo.py` | 摄像头视频流获取示例，支持实时播放 HEVC 视频流，并进行目标检测 |
 | `examples/rtsp.py` | RTSP 推流示例，支持将摄像头视频流推送到 RTSP 服务器 |
-
+| `examples/rtsp_includes_audio.py` | RTSP 推流示例，支持将摄像头视频流和音频流推送到 RTSP 服务器 |
 
 ## 许可证
 

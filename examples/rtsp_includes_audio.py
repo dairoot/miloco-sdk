@@ -1,4 +1,6 @@
 import asyncio
+import os
+import tempfile
 from asyncio.subprocess import PIPE, create_subprocess_exec
 
 from miloco_sdk import XiaomiClient
@@ -21,7 +23,7 @@ RTSP_URL = "rtsp://127.0.0.1:8554/live"
             source: publisher
     ```
 2. 运行此脚本，推流命令
-- python examples/rtsp.py
+- python examples/rtsp_includes_audio.py
 
 3. 然后接收命令
 - ffplay -fflags nobuffer -flags low_delay -framedrop rtsp://127.0.0.1:8554/live
@@ -75,10 +77,49 @@ async def run():
         print(f"输入错误: {e}")
         return
 
-    # 推流状态
+    # 创建音频 FIFO
+    audio_fifo = os.path.join(tempfile.gettempdir(), "camera_audio.fifo")
+    try:
+        os.unlink(audio_fifo)
+    except FileNotFoundError:
+        pass
+    os.mkfifo(audio_fifo)
+
+    # 状态
     ffmpeg_proc = None
     codec = None
     frame_count = 0
+    audio_frame_count = 0
+    audio_file = None
+    fifo_ready = asyncio.Event()
+
+    async def open_audio_fifo():
+        """后台任务：打开音频 FIFO 写端"""
+        nonlocal audio_file
+        loop = asyncio.get_event_loop()
+        # 这个调用会阻塞直到 ffmpeg 打开读端
+        audio_file = await loop.run_in_executor(None, lambda: open(audio_fifo, "wb", buffering=0))
+        fifo_ready.set()
+        print("音频管道已连接")
+
+    async def on_decode_pcm(did: str, data: bytes, ts: int, channel: int):
+        """接收解码后的 PCM 音频数据"""
+        nonlocal audio_frame_count
+        audio_frame_count += 1
+
+        # 等待 FIFO 就绪
+        if not fifo_ready.is_set():
+            return
+
+        if audio_file:
+            try:
+                audio_file.write(data)
+                if audio_frame_count % 200 == 0:
+                    print(f"音频推流中... 第 {audio_frame_count} 帧")
+            except BrokenPipeError:
+                pass
+            except Exception as e:
+                print(f"音频错误: {e}")
 
     async def on_raw_video(did: str, data: bytes, ts: int, seq: int, channel: int):
         nonlocal ffmpeg_proc, codec, frame_count
@@ -93,29 +134,57 @@ async def run():
                 return
 
             codec = detected
-            print(f"检测到 codec: {codec}，启动推流...")
+            print(f"检测到 codec: {codec}，启动 ffmpeg...")
+
+            # 启动打开 FIFO 的任务
+            asyncio.create_task(open_audio_fifo())
+
+            # 启动 ffmpeg
             ffmpeg_proc = await create_subprocess_exec(
                 "ffmpeg",
                 "-hide_banner",
                 "-loglevel",
-                "error",
-                "-probesize",
-                "32",
-                "-analyzeduration",
-                "0",
+                "info",
+                # 视频输入 - 使用系统时钟作为时间戳
+                "-use_wallclock_as_timestamps",
+                "1",
+                "-thread_queue_size",
+                "512",
                 "-fflags",
-                "+genpts+nobuffer+discardcorrupt",
-                "-flags",
-                "low_delay",
+                "+genpts",
                 "-f",
                 codec,
                 "-i",
                 "pipe:0",
+                # 音频输入 - 同样使用系统时钟
+                "-use_wallclock_as_timestamps",
+                "1",
+                "-thread_queue_size",
+                "512",
+                "-f",
+                "s16le",
+                "-ar",
+                "16000",
+                "-ac",
+                "1",
+                "-i",
+                audio_fifo,
+                # 映射
+                "-map",
+                "0:v",
+                "-map",
+                "1:a",
+                # 编码
                 "-c:v",
                 "copy",
-                "-an",
-                "-flush_packets",
-                "1",
+                "-c:a",
+                "aac",
+                "-ar",
+                "16000",
+                # 音频时间戳修复
+                "-af",
+                "aresample=async=1:first_pts=0",
+                # 输出
                 "-f",
                 "rtsp",
                 "-rtsp_transport",
@@ -124,25 +193,50 @@ async def run():
                 stdin=PIPE,
             )
 
-        # 写入 ffmpeg（不等待 drain 以降低延迟）
-        if ffmpeg_proc.stdin and not ffmpeg_proc.stdin.is_closing():
+        # 写入视频
+        if ffmpeg_proc and ffmpeg_proc.stdin and not ffmpeg_proc.stdin.is_closing():
             try:
                 ffmpeg_proc.stdin.write(data)
                 if frame_count % 100 == 0:
-                    print(f"推流中... 第 {frame_count} 帧, len={len(data)}")
-            except Exception as e:
-                print(f"写入错误: {e}")
+                    print(f"视频推流中... 第 {frame_count} 帧, 音频 {audio_frame_count} 帧")
+            except Exception:
+                pass
 
     print(f"\n准备推流到: {RTSP_URL}")
 
     try:
         await client.miot_camera_stream.run_stream(
-            device_info["did"], 0, on_raw_video_callback=on_raw_video, video_quality=MIoTCameraVideoQuality.HIGH
+            device_info["did"],
+            0,
+            on_raw_video_callback=on_raw_video,
+            on_decode_pcm_callback=on_decode_pcm,
+            video_quality=MIoTCameraVideoQuality.HIGH,
         )
         await client.miot_camera_stream.wait_for_data()
     except Exception as e:
         print(f"推流失败，请检查设备与当前程序在同一局域网: {e}")
-        return
+    finally:
+        # 关闭音频文件
+        if audio_file:
+            try:
+                audio_file.close()
+            except Exception:
+                pass
+
+        # 删除 FIFO
+        try:
+            os.unlink(audio_fifo)
+        except Exception:
+            pass
+
+        # 关闭 ffmpeg
+        if ffmpeg_proc:
+            try:
+                if ffmpeg_proc.stdin:
+                    ffmpeg_proc.stdin.close()
+                ffmpeg_proc.terminate()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":

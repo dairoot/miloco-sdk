@@ -6,6 +6,7 @@ from av.video.codeccontext import VideoCodecContext
 
 from miloco_sdk import XiaomiClient
 from miloco_sdk.cli.utils import get_auth_info, print_device_list
+from miloco_sdk.utils.types import MIoTCameraVideoQuality
 
 # 全局变量用于视频解码和显示
 video_decoder = None
@@ -54,7 +55,9 @@ async def run():
         return
 
     # 启动流
-    await client.miot_camera_stream.run_stream(device_info["did"], 0, on_raw_video_callback=on_raw_video)
+    await client.miot_camera_stream.run_stream(
+        device_info["did"], 0, on_raw_video_callback=on_raw_video, video_quality=MIoTCameraVideoQuality.HIGH
+    )
     await client.miot_camera_stream.wait_for_data()
 
     cv2.destroyAllWindows()
