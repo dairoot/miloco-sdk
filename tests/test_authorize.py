@@ -30,7 +30,7 @@ class TestXiaomiClient(unittest.TestCase):
         url = urllib.parse.urlparse(code_url)
         query_params = urllib.parse.parse_qs(url.query)
         code = query_params["code"][0]
-        print(code)
+        # print(code)
         data = client.authorize.get_access_token_from_mico(code)
         print(data)
 

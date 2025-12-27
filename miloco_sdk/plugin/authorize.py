@@ -1,3 +1,4 @@
+import hashlib
 import json
 import time
 from typing import Dict, List, Optional
@@ -27,16 +28,50 @@ class Authorize(BaseApi):
         except OSError:
             qr.print_ascii(invert=True, tty=False)
 
-    def get_code_url(self) -> str:
+    def user_authorization(self):
+        auth_url = "https://account.xiaomi.com/oauth2/authorize"
+        params = {
+            "skip_confirm": False,
+            "response_type": "code",
+            "redirect_uri": MICO_REDIRECT_URI,
+            "state": self._client._state,
+            "client_id": int(OAUTH2_CLIENT_ID),
+            "device_id": self._client._device_id,
+            "_locale": "zh_CN",
+            "_json": "true",
+        }
+        auth_res = self._client._http.get(auth_url, params=params, allow_redirects=False)
+        auth_json = json.loads(auth_res.text.split("&&&START&&&")[1])
 
+        url = "https://account.xiaomi.com/oauth2/userAuthorization"
+        data = {
+            "pt": auth_json["data"]["pt"],
+            "device_id": hashlib.md5(self._client._device_id.encode("utf-8")).hexdigest(),
+            "followup": auth_json["data"]["followup"],
+            "scope_id": auth_json["data"]["scope_id"],
+            "redirect_uri": MICO_REDIRECT_URI,
+            "client_id": OAUTH2_CLIENT_ID,
+            "_json": "true",
+            "_ssign": auth_json["data"]["_ssign"],
+        }
+        data = urlencode(data)
+        self._client._http.post(
+            url,
+            data=data,
+            allow_redirects=True,
+            headers={"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"},
+        )
+
+    def get_code_url(self) -> str:
         auth_url = "https://account.xiaomi.com/oauth2/authorize"
         params = {
             "pt": "0",
             "skip_confirm": False,
             "response_type": "code",
             "redirect_uri": MICO_REDIRECT_URI,
-            "state": self._client._state,
             "client_id": OAUTH2_CLIENT_ID,
+            "device_id": self._client._device_id,
+            "state": self._client._state,
             "scope": "1 3 6000",
             "scope_provider": "",
             "_locale": "zh_CN",
@@ -44,15 +79,16 @@ class Authorize(BaseApi):
         }
         auth_res = self._client._http.get(auth_url, params=params, allow_redirects=False)
         auth_json = json.loads(auth_res.text.split("&&&START&&&")[1])
-
+        # print("auth_json", auth_json)
         # 获取登录二维码
         url = "https://account.xiaomi.com/longPolling/loginUrl"
         scopes = list(auth_json["data"]["scope"].values())
+
         params = {
             "sid": auth_json["data"]["sid"],
             "lsrp_appName": auth_json["data"]["lsrp_appName"],
             "_customDisplay": "20",
-            "scope": "1 6000",
+            "scope": "1 3 6000",
             "client_id": OAUTH2_CLIENT_ID,
             "_locale": "zh_CN",
             "callback": auth_json["data"]["callback"],
@@ -71,7 +107,7 @@ class Authorize(BaseApi):
 
         # 打印 登录二维码
         self._print_qr(login_json["loginUrl"])
-        print("可以通过扫码登录，也可以通过在浏览器中打开授权链接: ", login_json["loginUrl"])
+        print("可以通过扫码登录，也可以通过在浏览器中打开登录链接: ", login_json["loginUrl"])
 
         # 等待扫码登录，该接口为长轮询接口，会返回登录二维码
         lp_res = self._client._http.get(login_json["lp"], timeout=120)
@@ -79,6 +115,9 @@ class Authorize(BaseApi):
 
         # 请求  /sts/oauth 获取 cookies
         self._client._http.get(lp_json["location"], allow_redirects=False)
+
+        # 授权 给 米家app
+        self.user_authorization()
 
         # 获取 code
         auth_url = "https://account.xiaomi.com/oauth2/authorize"
@@ -100,6 +139,7 @@ class Authorize(BaseApi):
         }
 
         response = self._client._http.get(auth_url, params=params, allow_redirects=False)
+
         return response.headers["Location"]
 
     def gen_auth_url(
