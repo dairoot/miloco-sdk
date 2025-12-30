@@ -21,7 +21,8 @@
 
 ## 系统要求
 
-支持 macOS、Linux 和 Windows (WSL)。
+- Python 3.12+
+- 支持 macOS、Linux 和 Windows (WSL)。
 
 
 ## 安装
