@@ -56,7 +56,7 @@ class XiaomiClient:
     def __init__(self, access_token: Optional[str] = None):
         # 检查系统支持
         _check_system_support()
-        
+
         self.client_id = OAUTH2_CLIENT_ID
         self._device_id = f"{PROJECT_CODE}.{get_device_id()}"
         self._state = hashlib.sha1(f"d={self._device_id}".encode("utf-8")).hexdigest()

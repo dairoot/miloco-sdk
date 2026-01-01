@@ -1,9 +1,14 @@
 import asyncio
+import logging
 from asyncio.subprocess import PIPE, create_subprocess_exec
+
+print("\033[91mffmpeg 推荐版本 8.0.1\033[0m")
 
 from miloco_sdk import XiaomiClient
 from miloco_sdk.cli.utils import get_auth_info, print_device_list
-from miloco_sdk.utils.types import MIoTCameraVideoQuality
+from miloco_sdk.utils.types import MIoTCameraStatus, MIoTCameraVideoQuality
+
+logging.getLogger("miloco_sdk.plugin.miot.camera").setLevel(logging.WARNING)
 
 # RTSP 服务器地址
 RTSP_URL = "rtsp://127.0.0.1:8554/live"
@@ -73,6 +78,12 @@ async def run():
         device_info = online_devices[int(index) - 1]
     except Exception as e:
         print(f"输入错误: {e}")
+        return
+
+    # 校验摄像头是否在线
+    status = await client.miot_camera_status.get_status_async(device_info)
+    if status != MIoTCameraStatus.CONNECTED:
+        print("\033[91m摄像头不在线，请检查摄像头跟脚本是否在同一局域网\033[0m")
         return
 
     # 推流状态

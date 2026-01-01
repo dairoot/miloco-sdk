@@ -51,24 +51,25 @@ class MIoTCameraStatusF(BaseApi):
         try:
             # 获取库版本
             version = await miot_camera.get_camera_version_async()
-            _LOGGER.info("libmiot_camera 版本: %s", version)
+            # _LOGGER.info("libmiot_camera 版本: %s", version)
 
             # 创建摄像头实例
-            _LOGGER.info("创建摄像头实例: %s", camera_info)
+            # _LOGGER.info("创建摄像头实例: %s", camera_info)
             camera_ins: MIoTCameraInstance = await miot_camera.create_camera_async(camera_info=camera_info)
 
             # 注册状态变化回调
             async def on_status_changed_async(did: str, status: MIoTCameraStatus):
-                _LOGGER.info("状态变化回调: did=%s, status=%s", did, status)
+                pass
+                # _LOGGER.info("状态变化回调: did=%s, status=%s", did, status)
 
             await camera_ins.register_status_changed_async(callback=on_status_changed_async)
 
             # 获取初始状态 (启动前)
             status_before = await camera_ins.get_status_async()
-            _LOGGER.info("启动前摄像头状态: %s", status_before)
+            # _LOGGER.info("启动前摄像头状态: %s", status_before)
 
             # 启动摄像头
-            _LOGGER.info("启动摄像头...")
+            # _LOGGER.info("启动摄像头...")
             await camera_ins.start_async(qualities=MIoTCameraVideoQuality.LOW, enable_reconnect=True)
 
             # 等待连接
@@ -76,22 +77,24 @@ class MIoTCameraStatusF(BaseApi):
 
             # 获取状态 (启动后)
             status_after = await camera_ins.get_status_async()
-            _LOGGER.info("启动后摄像头状态: %s", status_after)
+            # _LOGGER.info("启动后摄像头状态: %s", status_after)
 
             # 停止摄像头
-            _LOGGER.info("停止摄像头...")
+            # _LOGGER.info("停止摄像头...")
             await camera_ins.stop_async()
 
             # 获取停止后状态
             status_stopped = await camera_ins.get_status_async()
-            _LOGGER.info("停止后摄像头状态: %s", status_stopped)
+            # _LOGGER.info("停止后摄像头状态: %s", status_stopped)
+
 
         except Exception as e:
             _LOGGER.error("测试过程中发生错误: %s", e)
             raise
         finally:
-            # 清理资源
-            _LOGGER.info("清理资源...")
+            # 清理资源 - 只销毁摄像头实例，不调用 deinit_async()
+            # 避免底层 C 库 deinit 后再次 init 导致 segmentation fault
+            # _LOGGER.info("清理资源...")
             await miot_camera.destroy_camera_async(did=did)
-            await miot_camera.deinit_async()
-            _LOGGER.info("测试完成")
+            # _LOGGER.info("测试完成")
+            return status_after

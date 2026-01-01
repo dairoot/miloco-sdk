@@ -365,7 +365,7 @@ class MIoTCameraInstance:
     async def __register_raw_data_async(self, channel: int = 0) -> None:
         """Register raw data callback."""
         if channel < 0 or channel >= self._camera_info.channel_count:
-            _LOGGER.error("invalid channel, %s, %s", self._did, channel)
+            # _LOGGER.error("invalid channel, %s, %s", self._did, channel)
             raise MIoTCameraError(f"invalid channel, {self._did}, {channel}")
 
         c_callback = _MIOT_CAMERA_ON_RAW_DATA(self.__on_raw_data)
@@ -377,7 +377,7 @@ class MIoTCameraInstance:
     async def __unregister_raw_data_async(self, channel: int = 0) -> None:
         """Unregister raw data callback."""
         if channel < 0 or channel >= self._camera_info.channel_count:
-            _LOGGER.error("invalid channel, %s, %s", self._did, channel)
+            # _LOGGER.error("invalid channel, %s, %s", self._did, channel)
             raise MIoTCameraError(f"invalid channel, {self._did}, {channel}")
 
         result: int = self._lib_miot_camera.miot_camera_unregister_raw_data(self._c_instance, channel)
@@ -656,6 +656,7 @@ class MIoTCamera:
         # MUST add to refs, otherwise it will be freed.
         self._log_handler = _MIOT_CAMERA_LOG_HANDLER(self._on_miot_camera_log)
         self._lib_miot_camera.miot_camera_set_log_handler(self._log_handler)
+        self._deinit_done = False
 
         self._lib_miot_camera.miot_camera_init(
             self._host.encode("utf-8"), OAUTH2_CLIENT_ID.encode("utf-8"), self._access_token.encode("utf-8")
@@ -663,9 +664,11 @@ class MIoTCamera:
 
     def __del__(self):
         """Del."""
-        if self._lib_miot_camera:
-            self._lib_miot_camera.miot_camera_set_log_handler(None)
-            self._lib_miot_camera.miot_camera_deinit()
+        # 只在显式调用 deinit_async() 后才清理，避免自动 deinit 导致底层库状态不一致
+        if self._lib_miot_camera and self._deinit_done:
+            # 使用空回调代替 None，避免 ctypes.ArgumentError
+            empty_handler = _MIOT_CAMERA_LOG_HANDLER(lambda level, msg: None)
+            self._lib_miot_camera.miot_camera_set_log_handler(empty_handler)
             self._lib_miot_camera = None  # type: ignore
 
     def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -688,6 +691,7 @@ class MIoTCamera:
             await self.destroy_camera_async(did=did)
         self._camera_map.clear()
         self._lib_miot_camera.miot_camera_deinit()
+        self._deinit_done = True
         self._lib_miot_camera = None  # type: ignore
 
     async def update_access_token_async(self, access_token: str) -> None:
