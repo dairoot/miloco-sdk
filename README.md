@@ -51,12 +51,18 @@ export OPENAI_BASE_URL=大模型的API地址
 python -m miloco_sdk
 ```
 
+运行 Web 服务器示例：
+```bash
+python examples/web.py
+```
+
 ### 2. 编程使用
 
 SDK 提供了丰富的示例代码，位于 [examples/](examples/) 目录下，帮助您快速上手：
 
 | 示例文件 | 功能描述 |
 |---------|---------|
+| `examples/web.py` | Web 服务器示例，支持实时播放 HEVC 视频流，并进行目标检测 |
 | `examples/mcp_server.py` | MCP 服务器示例，支持与大模型集成，实现智能对话功能 |
 | `examples/stream_to_jpg.py` | 摄像头图片获取示例，支持实时获取并保存为 JPEG 图片文件 |
 | `examples/stream_to_video.py` | 摄像头视频流获取示例，支持实时播放 HEVC 视频流 |
