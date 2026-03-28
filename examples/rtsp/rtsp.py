@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 from asyncio.subprocess import PIPE, create_subprocess_exec
 
+logger = logging.getLogger(__name__)
+
 FFMPEG_MIN_VERSION = "8.0.1"
 
 
@@ -22,13 +24,13 @@ def check_ffmpeg_version():
             current = tuple(int(x) for x in version_str.split("."))
             required = tuple(int(x) for x in FFMPEG_MIN_VERSION.split("."))
             if current < required:
-                print(f"\033[91m警告: ffmpeg 版本 {version_str} 低于推荐版本 {FFMPEG_MIN_VERSION}，可能导致推流异常\033[0m")
+                logger.warning("ffmpeg 版本 %s 低于推荐版本 %s，可能导致推流异常", version_str, FFMPEG_MIN_VERSION)
             else:
-                print(f"ffmpeg 版本: {version_str}")
+                logger.info("ffmpeg 版本: %s", version_str)
         else:
-            print(f"ffmpeg 版本信息: {first_line}")
+            logger.info("ffmpeg 版本信息: %s", first_line)
     except FileNotFoundError:
-        print(f"\033[91m错误: 未找到 ffmpeg，请先安装 ffmpeg >= {FFMPEG_MIN_VERSION}\033[0m")
+        logger.error("未找到 ffmpeg，请先安装 ffmpeg >= %s", FFMPEG_MIN_VERSION)
 
 
 check_ffmpeg_version()
@@ -38,6 +40,7 @@ from miloco_sdk.cli.utils import get_auth_info, print_device_list
 from miloco_sdk.utils.types import MIoTCameraStatus, MIoTCameraVideoQuality
 
 logging.getLogger("miloco_sdk.plugin.miot.camera").setLevel(logging.WARNING)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 # RTSP 服务器地址（Docker 环境使用 go2rtc 容器名，本地使用 127.0.0.1）
 RTSP_HOST = os.getenv("RTSP_HOST", "127.0.0.1")
@@ -98,42 +101,42 @@ async def run(enable_audio: bool = False):
 
     device_list = client.home.get_device_list()
     online_devices = [d for d in device_list if d.get("isOnline", False)]
-    
+
 
     camera_devices = [ d for d in online_devices if "camera" in d["model"] ]
 
     if not camera_devices:
-        print("\n设备列表: 暂无摄像头设备")
+        logger.warning("设备列表: 暂无摄像头设备")
         return
 
-    
+
     if len(camera_devices) == 1:
         device_info = camera_devices[0]
-        print(f"\n检测到摄像头设备: {device_info['name']}, 正在拉流...\n")
+        logger.info("检测到摄像头设备: %s, 正在拉流...", device_info['name'])
 
     else:
         print_device_list(camera_devices)
         env_did = os.getenv("DEVICE_DID")
         if env_did:
-            print(f"使用环境变量 DEVICE_DID={env_did}")
+            logger.info("使用环境变量 DEVICE_DID=%s", env_did)
             device_info = next((d for d in online_devices if d.get("did") == env_did), None)
             if not device_info:
-                print(f"未找到 did 为 {env_did} 的在线设备")
+                logger.error("未找到 did 为 %s 的在线设备", env_did)
                 return
         else:
             index = input("请输入摄像头设备序号: ")
             try:
                 device_info = online_devices[int(index) - 1]
             except Exception as e:
-                print(f"输入错误: {e}")
+                logger.error("输入错误: %s", e)
                 return
 
-        print(f"\n选中的设备: {device_info.get("name")}\n")
+        logger.info("选中的设备: %s", device_info.get("name"))
 
     # 校验摄像头是否在线
     status = await client.miot_camera_status.get_status_async(device_info)
     if status != MIoTCameraStatus.CONNECTED:
-        print("\033[91m摄像头不在线，请检查摄像头跟脚本是否在同一局域网\033[0m")
+        logger.error("摄像头不在线，请检查摄像头跟脚本是否在同一局域网")
         return
 
     # 音频相关状态
@@ -156,7 +159,7 @@ async def run(enable_audio: bool = False):
         loop = asyncio.get_event_loop()
         audio_file = await loop.run_in_executor(None, lambda: open(audio_fifo, "wb", buffering=0))
         fifo_ready.set()
-        print("音频管道已连接")
+        logger.info("音频管道已连接")
 
     async def on_decode_pcm(did: str, data: bytes, ts: int, channel: int):
         """接收解码后的 PCM 音频数据"""
@@ -170,16 +173,23 @@ async def run(enable_audio: bool = False):
             try:
                 audio_file.write(data)
                 if audio_frame_count % 200 == 0:
-                    print(f"音频推流中... 第 {audio_frame_count} 帧")
+                    logger.debug("音频推流中... 第 %d 帧", audio_frame_count)
             except BrokenPipeError:
                 pass
             except Exception as e:
-                print(f"音频错误: {e}")
+                logger.error("音频错误: %s", e)
 
     # 推流状态
     ffmpeg_proc = None
     codec = None
     frame_count = 0
+    stream_stopped = asyncio.Event()
+
+    async def monitor_ffmpeg():
+        """监控 ffmpeg 进程，退出时通知主循环"""
+        ret = await ffmpeg_proc.wait()
+        logger.error("ffmpeg 进程已退出 (code=%s)", ret)
+        stream_stopped.set()
     # 缓存 VPS/SPS/PPS，确保每个 IDR 帧前都携带参数集
     cached_parameter_sets: dict[str, bytes] = {}  # h265: VPS/SPS/PPS, h264: SPS/PPS
 
@@ -257,11 +267,11 @@ async def run(enable_audio: bool = False):
             is_keyframe, detected = detect_keyframe_and_codec(data)
             if not is_keyframe or detected == "unknown":
                 if frame_count % 50 == 0:
-                    print(f"等待关键帧... 第 {frame_count} 帧")
+                    logger.debug("等待关键帧... 第 %d 帧", frame_count)
                 return
 
             codec = detected
-            print(f"检测到 codec: {codec}，启动推流...")
+            logger.info("检测到 codec: %s，启动推流...", codec)
 
             if enable_audio:
                 asyncio.create_task(open_audio_fifo())
@@ -344,6 +354,12 @@ async def run(enable_audio: bool = False):
                     stdin=PIPE,
                 )
 
+            asyncio.create_task(monitor_ffmpeg())
+
+        # 检测 ffmpeg 是否已退出
+        if stream_stopped.is_set():
+            return
+
         # 注入参数集并写入 ffmpeg
         data = inject_parameter_sets(data, codec)
         if ffmpeg_proc.stdin and not ffmpeg_proc.stdin.is_closing():
@@ -351,14 +367,17 @@ async def run(enable_audio: bool = False):
                 ffmpeg_proc.stdin.write(data)
                 if frame_count % 100 == 0:
                     if enable_audio:
-                        print(f"视频推流中... 第 {frame_count} 帧, 音频 {audio_frame_count} 帧")
+                        logger.debug("视频推流中... 第 %d 帧, 音频 %d 帧", frame_count, audio_frame_count)
                     else:
-                        print(f"推流中... 第 {frame_count} 帧, len={len(data)}")
+                        logger.debug("推流中... 第 %d 帧, len=%d", frame_count, len(data))
+            except (BrokenPipeError, ConnectionResetError):
+                logger.error("ffmpeg 管道断开，推流中断")
+                stream_stopped.set()
             except Exception as e:
-                print(f"写入错误: {e}")
+                logger.error("写入错误: %s", e)
 
     mode = "视频 + 音频" if enable_audio else "仅视频"
-    print(f"\n准备推流到: {RTSP_URL}（{mode}）")
+    logger.info("准备推流到: %s（%s）", RTSP_URL, mode)
 
     try:
         stream_kwargs = {
@@ -369,10 +388,20 @@ async def run(enable_audio: bool = False):
             stream_kwargs["on_decode_pcm_callback"] = on_decode_pcm
 
         await client.miot_camera_stream.run_stream(device_info["did"], 0, **stream_kwargs)
-        await client.miot_camera_stream.wait_for_data()
+
+        logger.info("开始接收摄像头数据，按 Ctrl+C 结束...")
+        # 等待推流中断信号或用户中断
+        while not stream_stopped.is_set():
+            await asyncio.sleep(1)
+
+        if stream_stopped.is_set():
+            logger.info("推流已停止，正在退出...")
+    except KeyboardInterrupt:
+        logger.info("收到退出信号...")
     except Exception as e:
-        print(f"推流失败，请检查设备与当前程序在同一局域网: {e}")
+        logger.error("推流失败，请检查设备与当前程序在同一局域网: %s", e)
     finally:
+        await client.miot_camera_stream.cleanup()
         if enable_audio:
             if audio_file:
                 try:

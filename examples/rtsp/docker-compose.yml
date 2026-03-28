@@ -5,8 +5,12 @@ services:
     volumes:
       - ./go2rtc.yaml:/config/go2rtc.yaml
     restart: unless-stopped
-    depends_on:
-      - rtsp-pusher
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:1984/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
     devices:
       - /dev/dri:/dev/dri  # 挂载核显，如不需要转码H.254可以不用
 
@@ -19,7 +23,9 @@ services:
       - DEVICE_INDEX=${DEVICE_INDEX:-}
     volumes:
       - ../../data:/app/examples/rtsp/data
-
+    depends_on:
+      go2rtc:
+        condition: service_healthy
     stdin_open: true
     tty: true
     restart: unless-stopped
