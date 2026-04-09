@@ -7,7 +7,6 @@ from miloco_sdk import XiaomiClient
 from miloco_sdk.cli.config import IMAGE_PATH, get_openai_config
 from miloco_sdk.cli.llm import llm_api
 from miloco_sdk.cli.mcp_tool import mcp
-from miloco_sdk.cli.utils import get_auth_info
 from miloco_sdk.utils.mcp_jsonrpc import call_tool
 
 # 禁用 httpx 模块的日志输出
@@ -24,8 +23,8 @@ async def on_decode_jpg(did: str, data: bytes, ts: int, channel: int) -> None:
 async def run():
     _ = get_openai_config()
     client = XiaomiClient()
-    auth_info = get_auth_info(client)
-    client.set_access_token(auth_info["access_token"])
+    client.login()
+
     device_list = client.home.get_device_list()
 
     online_devices = [line for line in device_list if line.get("isOnline", False)]

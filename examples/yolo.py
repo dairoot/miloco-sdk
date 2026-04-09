@@ -6,7 +6,7 @@ from av.video.codeccontext import VideoCodecContext
 from ultralytics import YOLO
 
 from miloco_sdk import XiaomiClient
-from miloco_sdk.cli.utils import get_auth_info, print_device_list
+from miloco_sdk.cli.utils import print_device_list
 
 # 全局变量用于视频解码和显示
 video_decoder = None
@@ -43,9 +43,7 @@ async def on_raw_video(did: str, data: bytes, ts: int, seq: int, channel: int):
 
 async def run():
     client = XiaomiClient()
-    auth_info = get_auth_info(client)
-    client.set_access_token(auth_info["access_token"])
-
+    client.login()
     device_list = client.home.get_device_list()
     online_devices = [d for d in device_list if d.get("isOnline", False)]
 

@@ -1,7 +1,7 @@
 import asyncio
 
 from miloco_sdk import XiaomiClient
-from miloco_sdk.cli.utils import get_auth_info, print_device_list
+from miloco_sdk.cli.utils import print_device_list
 
 image_path = "camera.jpg"
 
@@ -14,9 +14,7 @@ async def on_decode_jpg(did: str, data: bytes, ts: int, channel: int) -> None:
 
 async def run_camera(did: str):
     client = XiaomiClient()
-    auth_info = get_auth_info(client)
-    client.set_access_token(auth_info["access_token"])
-
+    client.login()
     # 启动流
     await client.miot_camera_stream.run_stream(did, 0, on_decode_jpg_callback=on_decode_jpg)
     await client.miot_camera_stream.wait_for_data()
@@ -24,9 +22,7 @@ async def run_camera(did: str):
 
 async def run():
     client = XiaomiClient()
-    auth_info = get_auth_info(client)
-    client.set_access_token(auth_info["access_token"])
-
+    client.login()
     device_list = client.home.get_device_list()
     online_devices = [d for d in device_list if d.get("isOnline", False)]
 

@@ -22,7 +22,7 @@ cd examples/rtsp
 docker compose up -d
 ```
 
-3. （可选）进入推流容器交互界面  
+3. （可选）进入推流容器交互界面
    仅在有多台摄像头、需要手动选择设备时执行：
 
 ```bash
@@ -58,4 +58,3 @@ uv run python examples/rtsp/rtsp.py --audio
 3. 在浏览器打开以下地址查看实时画面：
 
 `http://127.0.0.1:1984/stream.html?src=live`
-

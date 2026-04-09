@@ -35,37 +35,6 @@ def pad_string(text, width, align="<"):
         return " " * left + text + " " * right
 
 
-def get_auth_info(client):
-
-    auth_file = os.path.join(DATA_PATH, "auth_info.json")
-    if os.path.exists(auth_file):
-        with open(auth_file, "r", encoding="utf-8") as f:
-            auth_info = json.load(f)
-
-        if auth_info.get("created_at", 0) + auth_info.get("expires_in", 0) > int(time.time()) - 60 * 10:
-            return auth_info
-        else:
-            data = client.authorize.refresh_access_token_from_mico(auth_info["refresh_token"])
-            auth_info = data["result"]
-            auth_info["created_at"] = int(time.time())
-            with open(auth_file, "w", encoding="utf-8") as f:
-                json.dump(auth_info, f, ensure_ascii=True, indent=2)
-
-        
-
-    code_url = client.authorize.get_code_url()
-    url = urllib.parse.urlparse(code_url)
-    query_params = urllib.parse.parse_qs(url.query)
-    code = query_params["code"][0]
-    auth_info = client.authorize.get_access_token_from_mico(code)["result"]
-    auth_info["created_at"] = int(time.time())
-
-    with open(auth_file, "w", encoding="utf-8") as f:
-        json.dump(auth_info, f, ensure_ascii=True, indent=2)
-
-    return auth_info
-
-
 def print_device_list(device_list):
     """打印设备列表"""
 

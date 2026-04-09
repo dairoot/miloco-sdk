@@ -1,16 +1,17 @@
 import asyncio
 import io
 import os
+import sys
 from queue import Queue
 from threading import Lock
-import sys
+
 import cv2
 from aiohttp import web
 from av.packet import Packet
 from av.video.codeccontext import VideoCodecContext
 
 from miloco_sdk import XiaomiClient
-from miloco_sdk.cli.utils import get_auth_info, print_device_list
+from miloco_sdk.cli.utils import print_device_list
 from miloco_sdk.utils.types import MIoTCameraVideoQuality
 
 # 全局变量用于视频解码和显示
@@ -186,9 +187,7 @@ async def video_feed_handler(request):
 
 async def run():
     client = XiaomiClient()
-    auth_info = get_auth_info(client)
-    client.set_access_token(auth_info["access_token"])
-
+    client.login()
     device_list = client.home.get_device_list()
     online_devices = [d for d in device_list if d.get("isOnline", False)]
 
@@ -246,6 +245,6 @@ async def run():
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "yolo":
         from ultralytics import YOLO
+
         model = YOLO("yolo11n.pt")
     asyncio.run(run())
-

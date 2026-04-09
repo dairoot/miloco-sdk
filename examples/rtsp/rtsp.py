@@ -36,7 +36,7 @@ def check_ffmpeg_version():
 check_ffmpeg_version()
 
 from miloco_sdk import XiaomiClient
-from miloco_sdk.cli.utils import get_auth_info, print_device_list
+from miloco_sdk.cli.utils import print_device_list
 from miloco_sdk.utils.types import MIoTCameraStatus, MIoTCameraVideoQuality
 
 logging.getLogger("miloco_sdk.plugin.miot.camera").setLevel(logging.WARNING)
@@ -96,23 +96,19 @@ def detect_keyframe_and_codec(data: bytes) -> tuple[bool, str]:
 
 async def run(enable_audio: bool = False):
     client = XiaomiClient()
-    auth_info = get_auth_info(client)
-    client.set_access_token(auth_info["access_token"])
-
+    client.login()
     device_list = client.home.get_device_list()
     online_devices = [d for d in device_list if d.get("isOnline", False)]
 
-
-    camera_devices = [ d for d in online_devices if "camera" in d["model"] ]
+    camera_devices = [d for d in online_devices if "camera" in d["model"]]
 
     if not camera_devices:
         logger.warning("设备列表: 暂无摄像头设备")
         return
 
-
     if len(camera_devices) == 1:
         device_info = camera_devices[0]
-        logger.info("检测到摄像头设备: %s, 正在拉流...", device_info['name'])
+        logger.info("检测到摄像头设备: %s, 正在拉流...", device_info["name"])
 
     else:
         print_device_list(camera_devices)
@@ -190,6 +186,7 @@ async def run(enable_audio: bool = False):
         ret = await ffmpeg_proc.wait()
         logger.error("ffmpeg 进程已退出 (code=%s)", ret)
         stream_stopped.set()
+
     # 缓存 VPS/SPS/PPS，确保每个 IDR 帧前都携带参数集
     cached_parameter_sets: dict[str, bytes] = {}  # h265: VPS/SPS/PPS, h264: SPS/PPS
 

@@ -4,7 +4,7 @@ import numpy as np
 import sounddevice as sd
 
 from miloco_sdk import XiaomiClient
-from miloco_sdk.cli.utils import get_auth_info, print_device_list
+from miloco_sdk.cli.utils import print_device_list
 
 audio_stream = sd.OutputStream(samplerate=16000, channels=1, dtype=np.int16)
 audio_stream.start()
@@ -20,9 +20,7 @@ async def on_decode_pcm(did: str, data: bytes, ts: int, channel: int) -> None:
 async def run():
 
     client = XiaomiClient()
-    auth_info = get_auth_info(client)
-    client.set_access_token(auth_info["access_token"])
-
+    client.login()
     device_list = client.home.get_device_list()
     online_devices = [d for d in device_list if d.get("isOnline", False)]
 
