@@ -2,11 +2,14 @@ import asyncio
 import hashlib
 import inspect
 import json
+import logging
 import os
 import platform
 import time
 import urllib.parse
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 import requests
 
@@ -112,6 +115,7 @@ class XiaomiClient:
         auth_info = data["result"]
         auth_info["created_at"] = int(time.time())
         _save_auth_info(auth_info)
+        logger.info("token 刷新成功，新 token 有效期 %d 秒", auth_info.get("expires_in", 0))
         self._access_token = auth_info["access_token"]
 
     def _start_token_refresh_timer(self):
