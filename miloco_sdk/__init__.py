@@ -16,6 +16,7 @@ import requests
 from miloco_sdk.base import BaseApi
 from miloco_sdk.configs import DATA_PATH
 from miloco_sdk.plugin.authorize import Authorize
+from miloco_sdk.plugin.device import Device
 from miloco_sdk.plugin.home import Home
 from miloco_sdk.plugin.miot.mIot_camera_status import MIoTCameraStatusF
 from miloco_sdk.plugin.miot.mIot_camera_stream import MIoTCameraStream
@@ -71,6 +72,7 @@ class XiaomiClient:
     # 初始化各个功能模块的实例
     authorize = Authorize()
     home = Home()
+    device = Device()
     miot_camera_stream = MIoTCameraStream()
     miot_camera_status = MIoTCameraStatusF()
 
