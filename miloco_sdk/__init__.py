@@ -106,6 +106,9 @@ class XiaomiClient:
         auth_info = _read_auth_info()
         if not auth_info:
             return
+        
+        if auth_info.get("error", 0) != 0:
+            return
 
         # token 未过期，直接使用（提前10分钟刷新）
         if auth_info.get("created_at", 0) + auth_info.get("expires_in", 0) > int(time.time()) - 60 * 10:
