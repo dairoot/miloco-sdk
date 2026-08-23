@@ -6,3 +6,4 @@ data/
 camera.jpg
 *.pt
 mediamtx.yml
+*.rknn
